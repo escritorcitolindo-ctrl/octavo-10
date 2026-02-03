@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive English Flashcards - Querétaro Adventure</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e67e22;
+            --bg: #f4f7f6;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
+        header { background: var(--primary); color: white; width: 100%; text-align: center; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #game-container { max-width: 600px; width: 90%; margin-top: 50px; perspective: 1000px; }
+        .card { width: 100%; height: 400px; position: relative; transition: transform 0.8s; transform-style: preserve-3d; cursor: pointer; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .card.is-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 15px; padding: 20px; box-sizing: border-box; background: white; border: 4px solid var(--accent); }
+        .card-back { transform: rotateY(180deg); background: #fff3e0; }
+        img { width: 80%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 20px; }
+        .phrase { font-size: 1.5rem; text-align: center; font-weight: bold; color: var(--primary); }
+        .controls { margin-top: 30px; display: flex; gap: 20px; }
+        button { padding: 10px 25px; font-size: 1rem; cursor: pointer; border: none; border-radius: 5px; background: var(--accent); color: white; transition: 0.3s; }
+        button:hover { background: #d35400; }
+        #final-screen { display: none; text-align: center; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin-top: 50px; }
+        #participants-list { text-align: left; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Explora Querétaro: Aprende Inglés</h1>
+</header>
+
+<div id="game-container">
+    <div class="card" id="flashcard" onclick="flipCard()">
+        <div class="card-face card-front" id="front-content">
+            </div>
+        <div class="card-face card-back" id="back-content">
+            </div>
+    </div>
+</div>
+
+<div class="controls" id="controls">
+    <button onclick="prevCard()">Anterior</button>
+    <button onclick="nextCard()">Siguiente</button>
+</div>
+
+<div id="final-screen">
+    <h1 style="color: red;">GAME OVER</h1>
+    <p>¡Has completado el set de frases!</p>
+    <input type="text" id="userName" placeholder="Ingresa tu nombre" style="padding: 10px; width: 200px;">
+    <button onclick="saveUser()">Registrar</button>
+    <div id="participants-list">
+        <h3>Lista de Participantes:</h3>
+        <ul id="list-items"></ul>
+    </div>
+</div>
+
+<script>
+    const vocabulary = [
+        { en: "It is well known", es: "Es muy conocido", img: "https://images.unsplash.com/photo-1503596476-1c12a8ba09a9?w=400" },
+        { en: "Spanish colonial architecture", es: "Arquitectura colonial española", img: "https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?w=400" },
+        { en: "Amazing pink stone aqueduct", es: "Increíble acueducto de piedra rosa", img: "https://images.unsplash.com/photo-1590050752117-23a9d7f66d41?w=400" },
+        { en: "Outstanding baroque church", es: "Iglesia barroca sobresaliente", img: "https://images.unsplash.com/photo-1548181449-abc0791d23ec?w=400" },
+        { en: "Places to look out for", es: "Lugares a los cuales estar atentos", img: "https://images.unsplash.com/photo-1499591934245-40b55745b905?w=400" },
+        { en: "The ochre-colored temple", es: "El templo color ocre", img: "https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?w=400" },
+        { en: "The city's main square", es: "La plaza principal de la ciudad", img: "https://images.unsplash.com/photo-1534430480872-3498386e7a56?w=400" },
+        { en: "There are four main spoken languages", es: "Hay cuatro idiomas principales que se hablan", img: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400" },
+        { en: "In this way, they are bilingual", es: "De esta manera, ellos son bilingües", img: "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400" },
+        { en: "Don't forget to visit it", es: "No te olvides de visitarlo", img: "https://images.unsplash.com/photo-1500835595353-b0357a6b248a?w=400" },
+        { en: "A beautiful historical city", es: "Una hermosa ciudad histórica", img: "https://images.unsplash.com/photo-1512813195386-6cf811ad3542?w=400" },
+        { en: "Going to the historical sites", es: "Yendo a los sitios históricos", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400" },
+        { en: "I have lived here since I was born", es: "He vivido aquí desde que nací", img: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400" },
+        { en: "There are several museums as well as an impressive aqueduct", es: "Hay varios museos así como un impresionante acueducto", img: "https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?w=400" },
+        { en: "Go for a walk downtown", es: "Ir a caminar al centro", img: "https://images.unsplash.com/photo-1444412474218-49a003165a8a?w=400" },
+        { en: "Enjoy the culture", es: "Disfrutar la cultura", img: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400" },
+        { en: "Beautiful gardens", es: "Jardines hermosos", img: "https://images.unsplash.com/photo-1558236714-d117457d9290?w=400" },
+        { en: "Come to Queretaro and enjoy the beautiful sights", es: "Ven a Querétaro y disfruta las hermosas vistas", img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400" }
+    ];
+
+    let currentIndex = 0;
+    const card = document.getElementById('flashcard');
+    const front = document.getElementById('front-content');
+    const back = document.getElementById('back-content');
+
+    function speak(text, lang) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function updateCard() {
+        const item = vocabulary[currentIndex];
+        front.innerHTML = `<img src="${item.img}" alt="visual"> <div class="phrase">${item.en}</div> <p style="font-size: 0.8rem; color: gray;">(Click para traducir)</p>`;
+        back.innerHTML = `<div class="phrase">${item.es}</div> <p style="font-size: 0.8rem; color: gray;">(Click para volver)</p>`;
+        card.classList.remove('is-flipped');
+        speak(item.en, 'en-US');
+    }
+
+    function flipCard() {
+        card.classList.toggle('is-flipped');
+        const item = vocabulary[currentIndex];
+        if (card.classList.contains('is-flipped')) {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            speak(item.es, 'es-MX');
+        } else {
+            speak(item.en, 'en-US');
+        }
+    }
+
+    function nextCard() {
+        if (currentIndex < vocabulary.length - 1) {
+            currentIndex++;
+            updateCard();
+        } else {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('final-screen').style.display = 'block';
+            renderParticipants();
+        }
+    }
+
+    function prevCard() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateCard();
+        }
+    }
+
+    function saveUser() {
+        const name = document.getElementById('userName').value;
+        if (name) {
+            let players = JSON.parse(localStorage.getItem('players') || '[]');
+            players.push(name);
+            localStorage.setItem('players', JSON.stringify(players));
+            document.getElementById('userName').value = '';
+            renderParticipants();
+        }
+    }
+
+    function renderParticipants() {
+        const list = document.getElementById('list-items');
+        let players = JSON.parse(localStorage.getItem('players') || '[]');
+        list.innerHTML = players.map(p => `<li>${p}</li>`).join('');
+    }
+
+    // Inicializar
+    updateCard();
+</script>
+
+</body>
+</html>
